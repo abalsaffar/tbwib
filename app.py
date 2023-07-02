@@ -1,3 +1,4 @@
+# app.py
 from flask import Flask, render_template, request, redirect, url_for
 from flask_restful import Api, Resource
 from models import db, User, Category, SubCategory, Content
@@ -20,46 +21,61 @@ class PasswordResetResource(Resource):
 
 api.add_resource(PasswordResetResource, '/password-reset')
 
-class CategoryResource(Resource):
-    def get(self, category_id=None):
-        # Retrieve all categories or a specific category based on the provided ID
-        pass
-
+class RegisterResource(Resource):
     def post(self):
-        # Create a new category
-        pass
+        name = request.form['name']
+        email = request.form['email']
+        password = request.form['password']
 
-class SubCategoryResource(Resource):
-    def get(self, subcategory_id=None):
-        # Retrieve all subcategories or a specific subcategory based on the provided ID
-        pass
+        user = User(name=name, email=email, password=password)
+        db.session.add(user)
+        db.session.commit()
 
+        user.send_verification_email()
+
+        return {'message': 'User registered successfully'}
+
+api.add_resource(RegisterResource, '/register')
+
+class VerifyCodeResource(Resource):
     def post(self):
-        # Create a new subcategory
-        pass
+        code = request.form['code']
 
-class ContentResource(Resource):
-    def get(self, content_id=None):
-        # Retrieve all content or a specific content item based on the provided ID
-        pass
+        user = User.query.filter_by(code=code).first()
+        if user:
+            user.verified = True
+            db.session.commit()
 
+            return {'message': 'Code verified successfully'}
+        else:
+            return {'message': 'Code invalid'}
+
+api.add_resource(VerifyCodeResource, '/verify-code')
+
+class LoginResource(Resource):
     def post(self):
-        # Create a new content item
-        pass
+        email = request.form['email']
+        password = request.form['password']
 
-class UserProfileResource(Resource):
-    def get(self, user_id=None):
-        # Retrieve all user profiles or a specific user profile based on the provided ID
-        pass
+        user = User.query.filter_by(email=email).first()
+        if user and user.check_password(password):
+            return {'message': 'User logged in successfully', 'id': user.id}
+        else:
+            return {'message': 'Invalid credentials'}
 
+api.add_resource(LoginResource, '/login')
+
+class LogoutResource(Resource):
     def post(self):
-        # Create a new user profile
-        pass
+        user_id = request.form['id']
 
-api.add_resource(CategoryResource, '/categories', '/categories/<int:category_id>')
-api.add_resource(SubCategoryResource, '/subcategories', '/subcategories/<int:subcategory_id>')
-api.add_resource(ContentResource, '/content', '/content/<int:content_id>')
-api.add_resource(UserProfileResource, '/profiles', '/profiles/<int:user_id>')
+        user = User.query.get(user_id)
+        user.logout()
+        db.session.commit()
+
+        return {'message': 'User logged out successfully'}
+
+api.add_resource(LogoutResource, '/logout')
 
 if __name__ == '__main__':
     app.run(debug=True)
